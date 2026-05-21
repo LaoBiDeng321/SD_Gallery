@@ -171,8 +171,8 @@ sd-gallery/
    ```
 
 4. **启动服务**：
-   - Windows: 双击 `启动.bat`
-   - 其他系统: 在终端中执行 `python server.py`
+   - Windows: 双击 `run.bat`
+   - 其他系统: 双击`run.sh`
 
    启动成功后终端会显示：
    ```
