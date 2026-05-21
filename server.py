@@ -12,6 +12,8 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
 
 OUTPUTS_DIR = Path(__file__).parent.parent / 'outputs'
+TRASH_DIR = OUTPUTS_DIR / '.trash'
+TRASH_MANIFEST = TRASH_DIR / 'manifest.json'
 MAX_FILE_SIZE = 50 * 1024 * 1024
 ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.gif'}
 
@@ -79,96 +81,113 @@ def extract_metadata(image_path):
     }
 
     try:
-        with open(image_path, 'rb') as f:
-            data = f.read(1024 * 1024)
+        geninfo = None
 
-            if b'parameters' in data:
-                parts = data.split(b'parameters')
-                if len(parts) > 1:
-                    param_data = parts[1].split(b'end parameters')[0] if b'end parameters' in parts[1] else parts[1]
-                    params_text = param_data.decode('utf-8', errors='ignore')
+        # 方法1: 使用 PIL 读取图片元数据（与 SD WebUI 一致，最可靠）
+        try:
+            with Image.open(image_path) as img:
+                if 'parameters' in img.info:
+                    geninfo = img.info['parameters']
+                elif 'Comment' in img.info:
+                    comment = img.info['Comment']
+                    if isinstance(comment, bytes):
+                        geninfo = comment.decode('utf-8', errors='ignore')
+                    else:
+                        geninfo = comment
+        except Exception:
+            pass
 
-                    lines = params_text.strip().split('\n', 1)
-                    if lines:
-                        metadata['prompt'] = lines[0].strip()
+        # 方法2: 回退到原始二进制搜索（兼容特殊情况）
+        if not geninfo:
+            with open(image_path, 'rb') as f:
+                data = f.read(5 * 1024 * 1024)
 
-                    if len(lines) > 1:
-                        remaining_text = lines[1]
+                if b'parameters' in data:
+                    parts = data.split(b'parameters')
+                    if len(parts) > 1:
+                        param_data = parts[1].split(b'end parameters')[0] if b'end parameters' in parts[1] else parts[1]
+                        geninfo = param_data.decode('utf-8', errors='ignore')
 
-                        if 'Negative prompt:' in remaining_text:
-                            neg_parts = remaining_text.split('Negative prompt:', 1)
-                            remaining_text = neg_parts[0]
-                            neg_text = neg_parts[1]
+        if not geninfo:
+            return metadata
 
-                            if 'Steps:' in neg_text:
-                                neg_lines = neg_text.split('Steps:', 1)
-                                metadata['negative_prompt'] = neg_lines[0].strip()
-                                remaining_text += 'Steps:' + neg_lines[1]
-                            else:
-                                metadata['negative_prompt'] = neg_text.strip()
+        # 使用 Negative prompt: 作为分隔，正确提取多行 prompt
+        neg_split = geninfo.strip().split('Negative prompt:', 1)
+        metadata['prompt'] = neg_split[0].strip()
 
-                        params_line = remaining_text if remaining_text else ''
+        if len(neg_split) > 1:
+            rest = neg_split[1].strip()
 
-                        if 'Steps:' in params_line:
-                            steps_part = params_line.split('Steps:')[1]
-                            if ',' in steps_part:
-                                steps_match = steps_part.split(',')[0].strip()
-                            else:
-                                steps_match = steps_part.strip().split()[0] if steps_part.strip() else ''
-                            try:
-                                metadata['steps'] = int(steps_match)
-                            except:
-                                pass
+            steps_idx = rest.find('Steps:')
+            if steps_idx >= 0:
+                metadata['negative_prompt'] = rest[:steps_idx].strip().rstrip(',')
+                params_line = rest[steps_idx:]
+            else:
+                metadata['negative_prompt'] = rest
+                params_line = ''
+        else:
+            params_line = ''
 
-                        if 'Sampler:' in params_line:
-                            sampler_part = params_line.split('Sampler:')[1]
-                            if ',' in sampler_part:
-                                metadata['sampler'] = sampler_part.split(',')[0].strip()
-                            else:
-                                metadata['sampler'] = sampler_part.strip()
+        if 'Steps:' in params_line:
+            steps_part = params_line.split('Steps:')[1]
+            if ',' in steps_part:
+                steps_match = steps_part.split(',')[0].strip()
+            else:
+                steps_match = steps_part.strip().split()[0] if steps_part.strip() else ''
+            try:
+                metadata['steps'] = int(steps_match)
+            except:
+                pass
 
-                        if 'CFG scale:' in params_line:
-                            cfg_part = params_line.split('CFG scale:')[1]
-                            if ',' in cfg_part:
-                                cfg_match = cfg_part.split(',')[0].strip()
-                            else:
-                                cfg_match = cfg_part.strip().split()[0] if cfg_part.strip() else ''
-                            try:
-                                metadata['cfg_scale'] = float(cfg_match)
-                            except:
-                                pass
+        if 'Sampler:' in params_line:
+            sampler_part = params_line.split('Sampler:')[1]
+            if ',' in sampler_part:
+                metadata['sampler'] = sampler_part.split(',')[0].strip()
+            else:
+                metadata['sampler'] = sampler_part.strip()
 
-                        if 'Seed:' in params_line:
-                            seed_part = params_line.split('Seed:')[1]
-                            if ',' in seed_part:
-                                seed_match = seed_part.split(',')[0].strip()
-                            else:
-                                seed_match = seed_part.strip().split()[0] if seed_part.strip() else ''
-                            try:
-                                metadata['seed'] = int(seed_match)
-                            except:
-                                pass
+        if 'CFG scale:' in params_line:
+            cfg_part = params_line.split('CFG scale:')[1]
+            if ',' in cfg_part:
+                cfg_match = cfg_part.split(',')[0].strip()
+            else:
+                cfg_match = cfg_part.strip().split()[0] if cfg_part.strip() else ''
+            try:
+                metadata['cfg_scale'] = float(cfg_match)
+            except:
+                pass
 
-                        if 'Size:' in params_line:
-                            size_part = params_line.split('Size:')[1]
-                            if ',' in size_part:
-                                metadata['size'] = size_part.split(',')[0].strip()
-                            else:
-                                metadata['size'] = size_part.strip().split()[0] if size_part.strip() else ''
+        if 'Seed:' in params_line:
+            seed_part = params_line.split('Seed:')[1]
+            if ',' in seed_part:
+                seed_match = seed_part.split(',')[0].strip()
+            else:
+                seed_match = seed_part.strip().split()[0] if seed_part.strip() else ''
+            try:
+                metadata['seed'] = int(seed_match)
+            except:
+                pass
 
-                        if 'Model hash:' in params_line:
-                            hash_part = params_line.split('Model hash:')[1]
-                            if ',' in hash_part:
-                                metadata['model_hash'] = hash_part.split(',')[0].strip()
-                            else:
-                                metadata['model_hash'] = hash_part.strip().split()[0] if hash_part.strip() else ''
+        if 'Size:' in params_line:
+            size_part = params_line.split('Size:')[1]
+            if ',' in size_part:
+                metadata['size'] = size_part.split(',')[0].strip()
+            else:
+                metadata['size'] = size_part.strip().split()[0] if size_part.strip() else ''
 
-                        if 'Model:' in params_line:
-                            model_part = params_line.split('Model:')[1]
-                            if ',' in model_part:
-                                metadata['model_name'] = model_part.split(',')[0].strip()
-                            else:
-                                metadata['model_name'] = model_part.strip().split()[0] if model_part.strip() else ''
+        if 'Model hash:' in params_line:
+            hash_part = params_line.split('Model hash:')[1]
+            if ',' in hash_part:
+                metadata['model_hash'] = hash_part.split(',')[0].strip()
+            else:
+                metadata['model_hash'] = hash_part.strip().split()[0] if hash_part.strip() else ''
+
+        if 'Model:' in params_line:
+            model_part = params_line.split('Model:')[1]
+            if ',' in model_part:
+                metadata['model_name'] = model_part.split(',')[0].strip()
+            else:
+                metadata['model_name'] = model_part.strip().split()[0] if model_part.strip() else ''
 
     except Exception as e:
         print(f"Error extracting metadata from {image_path}: {e}")
@@ -200,6 +219,8 @@ def scan_images(force_refresh=False):
 
     for type_dir in OUTPUTS_DIR.iterdir():
         if not type_dir.is_dir():
+            continue
+        if type_dir.name == '.trash':
             continue
 
         image_type = get_image_type(type_dir.name)
@@ -262,7 +283,6 @@ def get_images():
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 50))
     search = request.args.get('search', '').lower()
-
     images = scan_images()
 
     if image_type and image_type != 'all':
@@ -444,8 +464,7 @@ def rename_image():
             'message': '重命名成功',
             'oldName': old_path.name,
             'newName': new_name,
-            'newId': new_info['id'] if new_info else None,
-            'newPath': new_info['path'] if new_info else None
+            'data': new_info
         })
 
 
@@ -456,64 +475,60 @@ def rename_image():
 @app.route('/api/delete', methods=['POST'])
 def delete_image():
     try:
-        print(f"[Server] Delete request headers: {dict(request.headers)}")
-        print(f"[Server] Delete request data: {request.data}")
-        
         data = request.get_json(silent=True)
-        print(f"[Server] Parsed JSON data: {data}")
         
         if not data:
-            print(f"[Server] Delete failed: No JSON data in request")
             return jsonify({'success': False, 'error': '无效的请求数据'}), 400
 
         encoded_path = data.get('path')
-        print(f"[Server] Delete request received for: {encoded_path}")
-
         if not encoded_path:
-            print(f"[Server] Delete failed: Missing path parameter")
             return jsonify({'success': False, 'error': '缺少文件路径'}), 400
+
+        mode = data.get('mode', 'hard')
 
         try:
             if encoded_path.startswith('/api/image/'):
                 encoded_path = encoded_path[11:]
-                print(f"[Server] Extracted encoded path: {encoded_path}")
             
             rel_path = base64.urlsafe_b64decode(encoded_path.encode()).decode()
-            print(f"[Server] Decoded path: {rel_path}")
         except Exception as decode_error:
-            print(f"[Server] Delete failed: Invalid path encoding - {decode_error}")
             return jsonify({'success': False, 'error': f'路径编码错误: {str(decode_error)}'}), 400
 
         image_path = safe_resolve_path(rel_path)
-        print(f"[Server] Full path: {image_path}")
 
-        if not image_path.exists():
-            print(f"[Server] Delete failed: File not found - {image_path}")
+        if not image_path.exists() or not image_path.is_file():
             return jsonify({'success': False, 'error': '文件不存在'}), 404
 
-        if not image_path.is_file():
-            print(f"[Server] Delete failed: Path is not a file - {image_path}")
-            return jsonify({'success': False, 'error': '路径不是文件'}), 400
+        if mode == 'soft':
+            moved = move_to_trash(image_path)
+            if not moved:
+                return jsonify({'success': False, 'error': '移入回收站失败'}), 500
 
-        # 1. 先删除磁盘文件
-        try:
-            image_path.unlink()
-            print(f"[Server] Successfully deleted file: {image_path.name}")
-        except PermissionError as pe:
-            print(f"[Server] Delete failed: Permission denied - {pe}")
-            return jsonify({'success': False, 'error': f'权限不足，无法删除文件: {str(pe)}'}), 403
-        except OSError as ose:
-            print(f"[Server] Delete failed: OS error - {ose}")
-            return jsonify({'success': False, 'error': f'系统错误，无法删除文件: {str(ose)}'}), 500
+            update_cache_after_delete(rel_path)
 
-        # 2. 删除文件成功后，更新缓存
-        update_cache_after_delete(rel_path)
+            return jsonify({
+                'success': True,
+                'message': '已移入回收站',
+                'mode': 'soft',
+                'filename': image_path.name
+            })
+        else:
+            # 硬删除：直接删除磁盘文件
+            try:
+                image_path.unlink()
+            except PermissionError as pe:
+                return jsonify({'success': False, 'error': f'权限不足，无法删除文件: {str(pe)}'}), 403
+            except OSError as ose:
+                return jsonify({'success': False, 'error': f'系统错误，无法删除文件: {str(ose)}'}), 500
 
-        return jsonify({
-            'success': True,
-            'message': '删除成功',
-            'filename': image_path.name
-        })
+            update_cache_after_delete(rel_path)
+
+            return jsonify({
+                'success': True,
+                'message': '删除成功',
+                'mode': 'hard',
+                'filename': image_path.name
+            })
 
     except Exception as e:
         import traceback
@@ -538,6 +553,181 @@ def get_stats():
         }
     })
 
+@app.route('/api/trash/list')
+def get_trash_list():
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 50))
+    search = request.args.get('search', '').lower()
+
+    trash_items = list_trash()
+
+    if search:
+        trash_items = [
+            entry for entry in trash_items
+            if search in entry.get('original_path', '').lower()
+        ]
+
+    trash_items.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+
+    total = len(trash_items)
+    total_pages = (total + limit - 1) // limit
+    start = (page - 1) * limit
+    end = start + limit
+
+    result_items = []
+    for entry in trash_items[start:end]:
+        trash_file = TRASH_DIR / entry['trash_name']
+        info = None
+        if trash_file.exists():
+            info = build_image_info_from_path(trash_file, f".trash/{entry['trash_name']}")
+        result_items.append({
+            'original_path': entry['original_path'],
+            'trash_name': entry['trash_name'],
+            'deleted_at': datetime.strptime(entry['timestamp'], '%Y%m%d_%H%M%S').isoformat() if 'timestamp' in entry else '',
+            'exists': trash_file.exists(),
+            'info': info
+        })
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'items': result_items,
+            'pagination': {
+                'page': page,
+                'limit': limit,
+                'total': total,
+                'total_pages': total_pages
+            }
+        }
+    })
+
+@app.route('/api/trash/restore', methods=['POST'])
+def restore_trash_item():
+    try:
+        data = request.get_json()
+        if not data or 'trash_name' not in data:
+            return jsonify({'success': False, 'error': '缺少参数 trash_name'}), 400
+
+        trash_name = data['trash_name']
+        success = restore_from_trash(trash_name)
+
+        if success:
+            return jsonify({'success': True, 'message': '恢复成功'})
+        else:
+            return jsonify({'success': False, 'error': '恢复失败，文件可能已损坏'}), 500
+
+    except Exception as e:
+        print(f"[Server] Restore error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/trash/delete', methods=['POST'])
+def delete_trash_item():
+    try:
+        data = request.get_json()
+        if not data or 'trash_name' not in data:
+            return jsonify({'success': False, 'error': '缺少参数 trash_name'}), 400
+
+        trash_name = data['trash_name']
+        manifest = load_trash_manifest()
+        updated = [e for e in manifest if e['trash_name'] != trash_name]
+
+        if len(updated) == len(manifest):
+            return jsonify({'success': False, 'error': '未找到该文件'}), 404
+
+        trash_file = TRASH_DIR / trash_name
+        if trash_file.exists():
+            trash_file.unlink()
+
+        save_trash_manifest(updated)
+        return jsonify({'success': True, 'message': '已彻底删除'})
+
+    except Exception as e:
+        print(f"[Server] Trash delete error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/trash/empty', methods=['POST'])
+def empty_trash_handler():
+    try:
+        empty_trash()
+        return jsonify({'success': True, 'message': '回收站已清空'})
+    except Exception as e:
+        print(f"[Server] Empty trash error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/trash/count')
+def get_trash_count():
+    manifest = load_trash_manifest()
+    count = sum(1 for e in manifest if (TRASH_DIR / e['trash_name']).exists())
+    return jsonify({
+        'success': True,
+        'data': {'count': count}
+    })
+
+# Trash management helper functions
+def move_to_trash(image_path: Path) -> bool:
+    """Move a file to the trash directory and update manifest."""
+    ensure_trash_dir()
+    import shutil
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    new_name = f"{image_path.stem}_{timestamp}{image_path.suffix}"
+    dest = TRASH_DIR / new_name
+    try:
+        shutil.move(str(image_path), str(dest))
+        manifest = load_trash_manifest()
+        manifest.append({
+            'original_path': str(image_path.relative_to(OUTPUTS_DIR).as_posix()),
+            'trash_name': new_name,
+            'timestamp': timestamp
+        })
+        save_trash_manifest(manifest)
+        return True
+    except Exception as e:
+        print(f"Error moving to trash: {e}")
+        return False
+
+def ensure_trash_dir():
+    TRASH_DIR.mkdir(parents=True, exist_ok=True)
+
+def load_trash_manifest() -> list:
+    if TRASH_MANIFEST.exists():
+        with open(TRASH_MANIFEST, 'r') as f:
+            return json.load(f)
+    return []
+
+def save_trash_manifest(manifest: list):
+    with open(TRASH_MANIFEST, 'w') as f:
+        json.dump(manifest, f, indent=2)
+
+def restore_from_trash(trash_name: str) -> bool:
+    """Restore a file from trash to its original location."""
+    manifest = load_trash_manifest()
+    for entry in manifest:
+        if entry['trash_name'] == trash_name:
+            src = TRASH_DIR / trash_name
+            dest = OUTPUTS_DIR / entry['original_path']
+            if not src.exists():
+                return False
+            import shutil
+            shutil.move(str(src), str(dest))
+            manifest.remove(entry)
+            save_trash_manifest(manifest)
+            return True
+    return False
+
+def empty_trash():
+    import shutil
+    if TRASH_DIR.exists():
+        shutil.rmtree(str(TRASH_DIR))
+    ensure_trash_dir()
+    save_trash_manifest([])
+
+def list_trash() -> list:
+    manifest = load_trash_manifest()
+    for entry in manifest:
+        trash_file = TRASH_DIR / entry['trash_name']
+        entry['exists'] = trash_file.exists()
+    return manifest
+
 def build_image_info_from_path(image_path: Path, rel_path: str) -> dict:
     """根据文件路径构建 image_info 字典，用于缓存"""
     try:
@@ -550,6 +740,7 @@ def build_image_info_from_path(image_path: Path, rel_path: str) -> dict:
         except Exception:
             pass
         metadata = extract_metadata(str(image_path))
+
         rel_path_posix = rel_path.replace('\\', '/')
         return {
             'id': base64.urlsafe_b64encode(str(image_path).encode()).decode()[:16],

@@ -70,7 +70,6 @@ class APIClient {
     if (filters.search) {
       params.append('search', filters.search);
     }
-
     const queryString = params.toString();
     const cacheKey = `/images?${queryString}`;
 
@@ -100,6 +99,47 @@ class APIClient {
   async downloadImage(path) {
     const encodedPath = encodeURIComponent(path);
     window.open(`${this.baseURL}/download/${encodedPath}`, '_blank');
+  }
+
+  async deleteImage(path, mode = 'hard') {
+    return await this.request('/delete', {
+      method: 'POST',
+      body: JSON.stringify({ path, mode })
+    });
+  }
+
+  async fetchTrashList(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.page) params.append('page', filters.page);
+    if (filters.limit) params.append('limit', filters.limit);
+    if (filters.search) params.append('search', filters.search);
+    const qs = params.toString();
+    return await this.request(`/trash/list${qs ? `?${qs}` : ''}`);
+  }
+
+  async restoreTrashItem(trashName) {
+    return await this.request('/trash/restore', {
+      method: 'POST',
+      body: JSON.stringify({ trash_name: trashName })
+    });
+  }
+
+  async deleteTrashItem(trashName) {
+    return await this.request('/trash/delete', {
+      method: 'POST',
+      body: JSON.stringify({ trash_name: trashName })
+    });
+  }
+
+  async emptyTrash() {
+    return await this.request('/trash/empty', {
+      method: 'POST',
+      body: JSON.stringify({})
+    });
+  }
+
+  async getTrashCount() {
+    return await this.request('/trash/count');
   }
 }
 

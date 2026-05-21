@@ -12,7 +12,8 @@ class Modal {
       confirmText = '确认',
       cancelText = '取消',
       confirmClass = 'btn--primary',
-      showCancel = true
+      showCancel = true,
+      modalClass = ''
     } = options;
 
     const overlay = document.createElement('div');
@@ -20,7 +21,7 @@ class Modal {
     overlay.id = 'modalOverlay';
 
     overlay.innerHTML = `
-      <div class="modal">
+      <div class="modal ${modalClass}">
         <div class="modal__header">
           <h3 class="modal__title">${title}</h3>
         </div>
@@ -97,6 +98,23 @@ class Modal {
     document.removeEventListener('keydown', this.handleEscape);
   }
 
+  showConfirm(title, message, onYes, onNo, yesText = '是', noText = '否') {
+    this.show({
+      title: title,
+      content: `<p class="modal__confirm-text">${message}</p>`,
+      confirmText: yesText,
+      confirmClass: 'btn--primary',
+      showCancel: true,
+      cancelText: noText,
+      onConfirm: () => {
+        if (onYes) onYes();
+      },
+      onCancel: () => {
+        if (onNo) onNo();
+      }
+    });
+  }
+
   showRenameModal(currentName, onConfirm, onCancel) {
     this.show({
       title: '修改名称',
@@ -152,18 +170,30 @@ class Modal {
     }, 150);
   }
 
-  showDeleteConfirm(filename, onConfirm, onCancel) {
+  showDeleteConfirm(filename, onConfirm, onCancel, isSoftDelete = false) {
+    const modeClass = isSoftDelete ? 'modal--soft-delete' : 'modal--hard-delete';
+    const icon = isSoftDelete
+      ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>'
+      : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+    const modeLabel = isSoftDelete ? '软删除' : '永久删除';
+    const modeDesc = isSoftDelete
+      ? '该文件将移至回收站，可在回收站中恢复或彻底删除。'
+      : '此操作不可恢复，文件将从系统中永久移除！';
+
     this.show({
-      title: '确认删除',
+      title: `${icon} ${modeLabel}确认`,
       content: `
         <p class="modal__confirm-text">
-          确定要删除图片 <strong>"${filename}"</strong> 吗？<br>
-          此操作不可恢复，请谨慎操作。
+          确定要${isSoftDelete ? '删除' : '永久删除'} <strong>"${filename}"</strong> 吗？
+        </p>
+        <p style="font-size: var(--font-size-sm); color: var(--color-text-tertiary); margin-top: var(--spacing-md); padding: var(--spacing-md); background: var(--color-bg-secondary); border-radius: var(--radius-md); border-left: 3px solid ${isSoftDelete ? '#f59e0b' : '#ef4444'};">
+          ${modeDesc}
         </p>
       `,
-      confirmText: '确认删除',
-      confirmClass: 'btn--danger',
+      confirmText: isSoftDelete ? '移入回收站' : '确认永久删除',
+      confirmClass: isSoftDelete ? 'btn--warning' : 'btn--danger',
       showCancel: true,
+      modalClass: modeClass,
       onConfirm: () => {
         if (onConfirm) {
           onConfirm();

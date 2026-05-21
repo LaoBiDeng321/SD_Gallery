@@ -73,6 +73,13 @@
         </button>
       </div>
 
+      <button class="btn btn--ghost btn--icon" id="deleteSettingsBtn" title="删除设置">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+
       <button class="theme-toggle" id="themeToggle" title="切换主题">
         <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="5"></circle>
@@ -95,14 +102,34 @@
   <div class="layout">
     <aside class="layout__sidebar">
       <div class="sidebar__section">
+        <h3 class="sidebar__title">分类</h3>
+        <div class="filter-group">
+          <div class="filter-option is-active" data-filter-view="gallery">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            </svg>
+            <span>正常图片全部</span>
+            <span class="filter-option__count" id="countViewGallery"></span>
+          </div>
+          <div class="filter-option" data-filter-view="trash">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span>回收站</span>
+            <span class="filter-option__count" id="sidebarTrashCount">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar__section">
         <h3 class="sidebar__title">图片类型</h3>
         <div class="filter-group">
           <div class="filter-option is-active" data-filter-type="all">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
             </svg>
-            <span>全部</span>
-            <span class="filter-option__count" id="countAll"></span>
+            <span>全部类型</span>
           </div>
           <div class="filter-option" data-filter-type="txt2img">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -112,7 +139,6 @@
               <circle cx="11" cy="11" r="2"></circle>
             </svg>
             <span>文生图</span>
-            <span class="filter-option__count" id="countTxt2img"></span>
           </div>
           <div class="filter-option" data-filter-type="img2img">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -121,7 +147,6 @@
               <polyline points="21 15 16 10 5 21"></polyline>
             </svg>
             <span>图生图</span>
-            <span class="filter-option__count" id="countImg2img"></span>
           </div>
           <div class="filter-option" data-filter-type="extras">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -129,7 +154,6 @@
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
             <span>后期处理</span>
-            <span class="filter-option__count" id="countExtras"></span>
           </div>
         </div>
       </div>
@@ -172,18 +196,6 @@
       </div>
 
       <div class="sidebar__section">
-        <h3 class="sidebar__title">快捷筛选</h3>
-        <div class="filter-group">
-          <div class="filter-option" id="favoritesFilter">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-            </svg>
-            <span>我的收藏</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="sidebar__section">
         <button class="btn btn--secondary" id="resetFilters" style="width: 100%;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="1 4 1 10 7 10"></polyline>
@@ -217,6 +229,9 @@
   <script src="js/modal.js"></script>
   <script src="js/lightbox.js"></script>
   <script src="js/responsive.js"></script>
+  <script src="js/nsfw.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/trash-manager.js"></script>
   <script src="js/gallery.js"></script>
   <script src="js/app.js"></script>
 

@@ -4,8 +4,7 @@ class FilterManager {
     this.filters = {
       type: 'all',
       dateRange: 'all',
-      search: '',
-      favorites: false
+      search: ''
     };
     this.init();
   }
@@ -32,13 +31,6 @@ class FilterManager {
       });
     });
 
-    const favoritesToggle = document.getElementById('favoritesFilter');
-    if (favoritesToggle) {
-      favoritesToggle.addEventListener('click', () => {
-        this.toggleFavorites();
-      });
-    }
-
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
       let debounceTimer;
@@ -56,6 +48,27 @@ class FilterManager {
         this.reset();
       });
     }
+
+    const viewOptions = document.querySelectorAll('[data-filter-view]');
+    viewOptions.forEach(option => {
+      option.addEventListener('click', (e) => {
+        const view = e.currentTarget.dataset.filterView;
+
+        viewOptions.forEach(opt => opt.classList.remove('is-active'));
+        e.currentTarget.classList.add('is-active');
+
+        if (view === 'trash') {
+          if (trashManager && !trashManager.isTrashView) {
+            trashManager.enterTrashView(this.getFilters());
+          }
+        } else if (view === 'gallery') {
+          if (trashManager && trashManager.isTrashView) {
+            trashManager.leaveTrashView();
+          }
+          this.emitChange();
+        }
+      });
+    });
   }
 
   saveFilters() {
@@ -63,7 +76,6 @@ class FilterManager {
       type: this.filters.type,
       dateRange: this.filters.dateRange,
       search: this.filters.search,
-      favorites: this.filters.favorites,
       savedAt: Date.now()
     };
     localStorage.setItem(this.storageKey, JSON.stringify(filtersToSave));
@@ -86,13 +98,6 @@ class FilterManager {
           const searchInput = document.getElementById('searchInput');
           if (searchInput) {
             searchInput.value = savedFilters.search;
-          }
-        }
-        if (savedFilters.favorites) {
-          this.filters.favorites = true;
-          const btn = document.getElementById('favoritesFilter');
-          if (btn) {
-            btn.classList.add('is-active');
           }
         }
 
@@ -171,25 +176,13 @@ class FilterManager {
     this.emitChange();
   }
 
-  toggleFavorites() {
-    console.log(`[Filter] Toggling favorites from '${this.filters.favorites}' to '${!this.filters.favorites}'`);
-    this.filters.favorites = !this.filters.favorites;
-    const btn = document.getElementById('favoritesFilter');
-    if (btn) {
-      btn.classList.toggle('is-active', this.filters.favorites);
-    }
-    this.saveFilters();
-    this.emitChange();
-  }
-
   reset() {
     this.filters = {
       type: 'all',
       dateRange: 'all',
       dateFrom: null,
       dateTo: null,
-      search: '',
-      favorites: false
+      search: ''
     };
 
     document.querySelectorAll('.filter-option').forEach(option => {
@@ -206,6 +199,12 @@ class FilterManager {
       allDateOption.classList.add('is-active');
     }
 
+    const galleryViewOption = document.querySelector('[data-filter-view="gallery"]');
+    if (galleryViewOption) {
+      document.querySelectorAll('[data-filter-view]').forEach(opt => opt.classList.remove('is-active'));
+      galleryViewOption.classList.add('is-active');
+    }
+
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
       searchInput.value = '';
@@ -216,11 +215,7 @@ class FilterManager {
   }
 
   getFilters() {
-    const favoriteIds = JSON.parse(localStorage.getItem('favorites') || '[]');
-    return {
-      ...this.filters,
-      favoriteIds
-    };
+    return { ...this.filters };
   }
 
   restoreFromURL() {
@@ -240,13 +235,6 @@ class FilterManager {
       const searchInput = document.getElementById('searchInput');
       if (searchInput) {
         searchInput.value = params.get('search');
-      }
-    }
-    if (params.has('favorites')) {
-      this.filters.favorites = true;
-      const btn = document.getElementById('favoritesFilter');
-      if (btn) {
-        btn.classList.add('is-active');
       }
     }
   }

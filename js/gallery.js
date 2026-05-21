@@ -17,6 +17,7 @@ class Gallery {
   }
 
   async init() {
+    nsfwDetector.init();
     this.bindEvents();
     this.setupResponsiveListener();
     await this.loadImages();
@@ -51,6 +52,12 @@ class Gallery {
   bindEvents() {
     window.addEventListener('filtersChanged', async (e) => {
       console.log('[Gallery] Filters changed, resetting pagination');
+
+      if (trashManager.isTrashView) {
+        console.log('[Gallery] In trash view, switching back to gallery view');
+        trashManager.leaveTrashView();
+      }
+
       this.currentPage = 1;
       this.images = [];
 
@@ -59,21 +66,6 @@ class Gallery {
       }
 
       await this.loadImages(e.detail);
-    });
-
-    window.addEventListener('favoritesUpdated', async () => {
-      const filters = filterManager.getFilters();
-      if (filters.favorites) {
-        console.log('[Gallery] Favorites updated, reloading');
-        this.currentPage = 1;
-        this.images = [];
-
-        if (pager) {
-          pager.reset();
-        }
-
-        await this.loadImages(filters);
-      }
     });
   }
 
@@ -167,24 +159,40 @@ class Gallery {
     `;
   }
 
+  _isNSFWImage(image) {
+    return nsfwDetector.checkImage(image);
+  }
+
+  _renderNSFWOverlay(image) {
+    const isNsfw = this._isNSFWImage(image);
+    if (!isNsfw) return '';
+    return `
+      <div class="nsfw-overlay">
+        <div class="nsfw-overlay__badge">NSFW</div>
+      </div>
+    `;
+  }
+
+  _getImageSrc(image, isNsfwHidden) {
+    return image.thumbnail || image.path;
+  }
+
   renderGridItem(image, index) {
-    const isFavorite = this.isFavorite(image.id);
+    const isNsfw = this._isNSFWImage(image);
+    const nsfwHidden = isNsfw && !nsfwDetector.shouldDisplay();
+    const imgSrc = image.thumbnail || image.path;
     return `
       <div class="card gallery-item" data-index="${index}" data-id="${image.id}">
-        <div class="card__image">
+        <div class="card__image${nsfwHidden ? ' nsfw-thumb--hidden' : ''}">
           <img
-            class="lazy-image"
-            data-src="${image.thumbnail || image.path}"
-            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect fill='%23f0f0f0' width='400' height='400'/%3E%3C/svg%3E"
+            class="lazy-image${nsfwHidden ? ' nsfw-blurred-img' : ''}"
+            data-src="${imgSrc}"
+            src="${imgSrc}"
             alt="${image.filename}"
             loading="lazy"
           />
+          ${this._renderNSFWOverlay(image)}
           <div class="card__overlay">
-            <button class="btn btn--ghost btn--icon favorite-btn ${isFavorite ? 'is-favorite' : ''}" data-id="${image.id}" title="收藏">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="${isFavorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-              </svg>
-            </button>
             <button class="btn btn--ghost btn--icon" onclick="lightbox.open(gallery.images, ${index}, { totalItems: gallery.totalItems, currentPage: gallery.currentPage, limit: gallery.limit, filters: filterManager.getFilters() })" title="查看">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -197,6 +205,7 @@ class Gallery {
           <div class="card__title">${image.filename}</div>
           <div class="card__meta">
             <span class="badge">${image.type}</span>
+            ${isNsfw ? '<span class="badge badge--nsfw">NSFW</span>' : ''}
             <span>${this.formatDate(image.created_at)}</span>
           </div>
         </div>
@@ -213,24 +222,28 @@ class Gallery {
   }
 
   renderListItem(image, index) {
-    const isFavorite = this.isFavorite(image.id);
+    const isNsfw = this._isNSFWImage(image);
+    const nsfwHidden = isNsfw && !nsfwDetector.shouldDisplay();
+    const imgSrc = image.thumbnail || image.path;
     const meta = image.metadata || {};
     const sizeDisplay = meta.size || (image.dimensions?.width && image.dimensions?.height ? `${image.dimensions.width}×${image.dimensions.height}` : '-');
     return `
       <div class="list-item gallery-item" data-index="${index}" data-id="${image.id}">
-        <div class="list-item__thumbnail">
+        <div class="list-item__thumbnail${nsfwHidden ? ' nsfw-thumb--hidden' : ''}">
           <img
-            class="lazy-image"
-            data-src="${image.thumbnail || image.path}"
-            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect fill='%23f0f0f0' width='80' height='80'/%3E%3C/svg%3E"
+            class="lazy-image${nsfwHidden ? ' nsfw-blurred-img' : ''}"
+            data-src="${imgSrc}"
+            src="${imgSrc}"
             alt="${image.filename}"
             loading="lazy"
           />
+          ${this._renderNSFWOverlay(image)}
         </div>
         <div class="list-item__content">
           <div class="list-item__title">${image.filename}</div>
           <div class="list-item__meta">
             <span class="badge">${image.type}</span>
+            ${isNsfw ? '<span class="badge badge--nsfw">NSFW</span>' : ''}
             <span>${sizeDisplay}</span>
             <span>Seed: ${meta.seed || '-'}</span>
             <span>${meta.sampler || '-'}</span>
@@ -238,11 +251,6 @@ class Gallery {
           </div>
         </div>
         <div class="list-item__actions-full">
-          <button class="btn btn--ghost btn--icon favorite-btn ${isFavorite ? 'is-favorite' : ''}" data-id="${image.id}" data-filename="${image.filename}" title="收藏">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="${isFavorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-            </svg>
-          </button>
           <button class="btn btn--ghost btn--icon" data-id="${image.id}" data-filename="${image.filename}" data-path="${image.path}" data-index="${index}" onclick="gallery.handleRename(this)" title="修改名称">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -283,20 +291,10 @@ class Gallery {
   }
 
   setupImageClickHandlers() {
-    const favoriteBtns = document.querySelectorAll('.favorite-btn');
-    favoriteBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = btn.dataset.id;
-        this.toggleFavorite(id);
-      });
-    });
-
     const items = document.querySelectorAll('.gallery-item');
     items.forEach(item => {
       item.addEventListener('click', (e) => {
-        if (!e.target.closest('.favorite-btn') &&
-            !e.target.closest('[onclick="gallery.handleRename(this)"]') &&
+        if (!e.target.closest('[onclick="gallery.handleRename(this)"]') &&
             !e.target.closest('[onclick="gallery.handleDelete(this)"]') &&
             !e.target.closest('[onclick="lightbox.open(gallery.images, ')) {
           const index = parseInt(item.dataset.index);
@@ -311,42 +309,91 @@ class Gallery {
     });
   }
 
+  _findImageIndexByPath(imagePath) {
+    const encodedPart = imagePath.replace('/api/image/', '');
+    return this.images.findIndex(img => img.path.endsWith(encodedPart));
+  }
+
+  _snapshotImageEntry(image) {
+    return JSON.parse(JSON.stringify(image));
+  }
+
+  _snapshotPagination() {
+    return {
+      totalItems: this.totalItems,
+      totalPages: this.totalPages,
+      currentPage: this.currentPage,
+      images: [...this.images]
+    };
+  }
+
+  _recalculatePagination() {
+    this.totalPages = Math.max(1, Math.ceil(this.totalItems / this.limit));
+  }
+
+  _updateUIAfterLocalChange() {
+    this.updateStats(this.totalItems);
+    if (pager) {
+      pager.update({
+        currentPage: this.currentPage,
+        totalPages: this.totalPages,
+        totalItems: this.totalItems,
+        perPage: this.limit
+      });
+    }
+    this.render();
+  }
+
   async handleRename(btn) {
+    if (this._pendingRename) {
+      modal.showToast('请等待当前操作完成', 'error');
+      return;
+    }
+
     const id = btn.dataset.id;
     const filename = btn.dataset.filename;
     const imagePath = btn.dataset.path;
-    const image = this.images.find(img => img.path === imagePath);
+    const imageIndex = this._findImageIndexByPath(imagePath);
 
-    if (!image) {
+    if (imageIndex === -1 || !this.images[imageIndex]) {
       modal.showToast('图片信息不存在', 'error');
       return;
     }
 
+    const image = this.images[imageIndex];
+
     modal.showRenameModal(
       filename,
       async (newName) => {
-        console.log(`[Gallery] Renaming ${filename} to ${newName}`);
+        if (newName === filename) {
+          return;
+        }
+
+        console.log(`[Gallery] Renaming "${filename}" to "${newName}"`);
+
+        this._pendingRename = true;
+
+        const oldEntry = this._snapshotImageEntry(image);
+
+        image.filename = newName;
+        this._updateUIAfterLocalChange();
 
         try {
           const response = await this.renameImage(imagePath, newName);
 
-          if (response && response.success) {
-            api.clearCache();
+          if (response && response.success && response.data) {
+            const newData = response.data;
+            this.images[imageIndex] = newData;
+            this._updateUIAfterLocalChange();
             modal.showToast('修改成功');
-            this.loadImages(filterManager.getFilters());
-
-            if (response.newId) {
-              const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-              const index = favorites.indexOf(id);
-              if (index > -1) {
-                favorites[index] = response.newId;
-                localStorage.setItem('favorites', JSON.stringify(favorites));
-              }
-            }
           }
         } catch (error) {
-          console.error('[Gallery] Rename failed:', error);
+          console.error('[Gallery] Rename failed, rolling back:', error);
+          this.images[imageIndex] = oldEntry;
+          this._updateUIAfterLocalChange();
           modal.showToast('修改失败：' + error.message, 'error');
+        } finally {
+          this._pendingRename = false;
         }
       },
       () => {
@@ -356,39 +403,85 @@ class Gallery {
   }
 
   async handleDelete(btn) {
+    if (this._pendingDelete) {
+      modal.showToast('请等待当前操作完成', 'error');
+      return;
+    }
+
     const id = btn.dataset.id;
     const filename = btn.dataset.filename;
     const imagePath = btn.dataset.path;
+    const isSoftDelete = settingsManager.isSoftDeleteEnabled();
 
     modal.showDeleteConfirm(
       filename,
       async () => {
-        console.log(`[Gallery] Deleting ${filename} with path: ${imagePath}`);
+        console.log(`[Gallery] Deleting "${filename}" (mode: ${isSoftDelete ? 'soft' : 'hard'})`);
+
+        this._pendingDelete = true;
+
+        const imageIndex = this._findImageIndexByPath(imagePath);
+        if (imageIndex === -1 || !this.images[imageIndex]) {
+          modal.showToast('图片信息不存在', 'error');
+          this._pendingDelete = false;
+          return;
+        }
+
+        const deletedEntry = this._snapshotImageEntry(this.images[imageIndex]);
+        const paginationSnapshot = this._snapshotPagination();
+
+        this.images.splice(imageIndex, 1);
+        this.totalItems -= 1;
+        this._recalculatePagination();
+
+        const pageEmptied = this.images.length === 0 && this.currentPage > 1;
+
+        if (pageEmptied) {
+          this.currentPage -= 1;
+          if (pager) {
+            pager.update({
+              currentPage: this.currentPage,
+              totalPages: this.totalPages,
+              totalItems: this.totalItems,
+              perPage: this.limit
+            });
+          }
+          this.updateStats(this.totalItems);
+          await this.loadImages(filterManager.getFilters());
+        } else {
+          this._updateUIAfterLocalChange();
+        }
 
         try {
-          const success = await this.deleteImage(imagePath);
-
-          if (success) {
-            api.clearCache();
-            const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-            const favIndex = favorites.indexOf(id);
-            if (favIndex > -1) {
-              favorites.splice(favIndex, 1);
-              localStorage.setItem('favorites', JSON.stringify(favorites));
-              window.dispatchEvent(new CustomEvent('favoritesUpdated'));
+          const response = await this.deleteImage(imagePath, isSoftDelete ? 'soft' : 'hard');
+          if (response && response.success) {
+            modal.showToast(response.mode === 'soft' ? '已移入回收站' : '删除成功');
+            if (window.trashManager && typeof window.trashManager.updateTrashCount === 'function') {
+              window.trashManager.updateTrashCount();
             }
-
-            modal.showToast('删除成功');
-            this.loadImages(filterManager.getFilters());
           }
         } catch (error) {
-          console.error('[Gallery] Delete failed:', error);
+          console.error('[Gallery] Delete failed, rolling back:', error);
+
+          if (pageEmptied) {
+            this.currentPage = paginationSnapshot.currentPage;
+          }
+
+          this.images.splice(imageIndex, 0, deletedEntry);
+          this.totalItems = paginationSnapshot.totalItems;
+          this.totalPages = paginationSnapshot.totalPages;
+
+          this._updateUIAfterLocalChange();
+
           modal.showToast('删除失败：' + error.message, 'error');
+        } finally {
+          this._pendingDelete = false;
         }
       },
       () => {
         console.log('[Gallery] Delete cancelled');
-      }
+      },
+      isSoftDelete
     );
   }
 
@@ -403,7 +496,7 @@ class Gallery {
           try {
             const response = JSON.parse(xhr.responseText);
             if (response.success) {
-              resolve(true);
+              resolve(response);
             } else {
               reject(new Error(response.error || '重命名失败'));
             }
@@ -423,14 +516,14 @@ class Gallery {
     });
   }
 
-  async deleteImage(path) {
-    console.log(`[Gallery] deleteImage called with path: ${path}`);
+  async deleteImage(path, mode = 'hard') {
+    console.log(`[Gallery] deleteImage called with path: ${path}, mode: ${mode}`);
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/delete', true);
       xhr.setRequestHeader('Content-Type', 'application/json');
       
-      const requestData = JSON.stringify({ path });
+      const requestData = JSON.stringify({ path, mode });
       console.log(`[Gallery] Sending request with data: ${requestData}`);
 
       xhr.onload = () => {
@@ -439,7 +532,7 @@ class Gallery {
           try {
             const response = JSON.parse(xhr.responseText);
             if (response.success) {
-              resolve(true);
+              resolve(response);
             } else {
               reject(new Error(response.error || '删除失败'));
             }
@@ -529,32 +622,6 @@ class Gallery {
     }
 
     this.render();
-  }
-
-  isFavorite(imageId) {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    return favorites.includes(imageId);
-  }
-
-  toggleFavorite(imageId) {
-    let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    const index = favorites.indexOf(imageId);
-
-    if (index > -1) {
-      favorites.splice(index, 1);
-    } else {
-      favorites.push(imageId);
-    }
-
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-
-    document.querySelectorAll(`.favorite-btn[data-id="${imageId}"]`).forEach(btn => {
-      const isFav = favorites.includes(imageId);
-      btn.classList.toggle('is-favorite', isFav);
-      btn.querySelector('svg').setAttribute('fill', isFav ? 'currentColor' : 'none');
-    });
-
-    window.dispatchEvent(new CustomEvent('favoritesUpdated'));
   }
 
   updateStats(total) {

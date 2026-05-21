@@ -113,6 +113,10 @@ body {
   z-index: 10;
 }
 
+.lightbox__delete-btn:hover {
+  color: #ef4444;
+}
+
 .lightbox__content {
   flex: 1;
   display: flex;
@@ -160,6 +164,7 @@ body {
   object-fit: contain;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
+  transition: filter 0.3s ease, transform 0.3s ease;
 }
 
 .lightbox__info {

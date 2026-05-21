@@ -25,11 +25,6 @@ class Lightbox {
       <div class="lightbox__header">
         <div class="lightbox__title"></div>
         <div class="lightbox__actions">
-          <button class="btn btn--ghost btn--icon" id="lightboxFavorite" title="收藏">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-            </svg>
-          </button>
           <button class="btn btn--ghost btn--icon" id="lightboxDownload" title="下载">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -41,6 +36,12 @@ class Lightbox {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+          <button class="btn btn--ghost btn--icon lightbox__delete-btn" id="lightboxDelete" title="删除">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
             </svg>
           </button>
           <button class="btn btn--ghost btn--icon" id="lightboxClose" title="关闭">
@@ -67,6 +68,14 @@ class Lightbox {
       <div class="lightbox__content">
         <div class="lightbox__image-container">
           <img class="lightbox__image" id="lightboxImage" src="" alt="">
+          <div class="lightbox__nsfw-overlay" id="lightboxNsfwOverlay">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+              <path d="M10.41 10.41a2 2 0 1 1 2.83 2.83"></path>
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path>
+              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
+            </svg>
+            <span>NSFW 内容</span>
+          </div>
         </div>
       </div>
 
@@ -77,12 +86,13 @@ class Lightbox {
     this.element = lightbox;
     this.imageEl = document.getElementById('lightboxImage');
     this.infoEl = document.getElementById('lightboxInfo');
+    this.nsfwOverlay = document.getElementById('lightboxNsfwOverlay');
     if (this.infoEl) {
       this.infoEl.classList.remove('is-visible');
     }
-    this.favoriteBtn = document.getElementById('lightboxFavorite');
     this.downloadBtn = document.getElementById('lightboxDownload');
     this.copyBtn = document.getElementById('lightboxCopyParams');
+    this.deleteBtn = document.getElementById('lightboxDelete');
     this.closeBtn = document.getElementById('lightboxClose');
     this.prevBtn = document.getElementById('lightboxPrev');
     this.nextBtn = document.getElementById('lightboxNext');
@@ -98,10 +108,6 @@ class Lightbox {
       e.stopPropagation();
       this.next();
     });
-    this.favoriteBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleFavorite();
-    });
     this.downloadBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.download();
@@ -109,6 +115,10 @@ class Lightbox {
     this.copyBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.copyParams();
+    });
+    this.deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.handleDelete();
     });
 
     this.element.addEventListener('click', (e) => {
@@ -259,15 +269,39 @@ class Lightbox {
     const image = this.images[this.currentIndex];
     if (!image) return;
 
+    const isNsfw = this._isNSFWImage(image);
+    const shouldHide = isNsfw && !nsfwDetector.shouldDisplay();
+
+    if (shouldHide) {
+      this.nsfwOverlay.classList.add('is-visible');
+      this.imageEl.style.filter = 'blur(40px)';
+      this.imageEl.style.transform = 'scale(1.1)';
+    }
+
     this.imageEl.src = image.path;
     this.imageEl.alt = image.filename;
 
-    const isFavorite = this.isFavorite(image.id);
-    this.favoriteBtn.innerHTML = isFavorite
-      ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>'
-      : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
+    if (!shouldHide) {
+      const removeProtection = () => {
+        this.imageEl.removeEventListener('load', removeProtection);
+        this.imageEl.removeEventListener('error', removeProtection);
+        this.nsfwOverlay.classList.remove('is-visible');
+        this.imageEl.style.filter = '';
+        this.imageEl.style.transform = '';
+      };
+      if (this.imageEl.complete && this.imageEl.naturalWidth > 0) {
+        removeProtection();
+      } else {
+        this.imageEl.addEventListener('load', removeProtection);
+        this.imageEl.addEventListener('error', removeProtection);
+      }
+    }
 
     this.renderInfo(image);
+  }
+
+  _isNSFWImage(image) {
+    return nsfwDetector.checkImage(image);
   }
 
   renderInfo(image) {
@@ -356,29 +390,6 @@ class Lightbox {
     return div.innerHTML;
   }
 
-  isFavorite(imageId) {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    return favorites.includes(imageId);
-  }
-
-  toggleFavorite() {
-    const image = this.images[this.currentIndex];
-    if (!image) return;
-
-    let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    const index = favorites.indexOf(image.id);
-
-    if (index > -1) {
-      favorites.splice(index, 1);
-    } else {
-      favorites.push(image.id);
-    }
-
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-    this.updateImage();
-    window.dispatchEvent(new CustomEvent('favoritesUpdated'));
-  }
-
   download() {
     const image = this.images[this.currentIndex];
     if (!image) return;
@@ -401,6 +412,72 @@ class Lightbox {
 
     navigator.clipboard.writeText(params.join('\n')).then(() => {
       this.showToast('参数已复制到剪贴板');
+    });
+  }
+
+  handleDelete() {
+    const image = this.images[this.currentIndex];
+    if (!image) return;
+
+    const isSoftDelete = settingsManager ? settingsManager.isSoftDeleteEnabled() : false;
+
+    modal.showDeleteConfirm(
+      image.filename,
+      async () => {
+        try {
+          const response = await this._deleteImageRequest(image.path, isSoftDelete ? 'soft' : 'hard');
+          if (response && response.success) {
+            this.showToast(response.mode === 'soft' ? '已移入回收站' : '删除成功');
+            this.close();
+            if (window.trashManager && typeof window.trashManager.updateTrashCount === 'function') {
+              window.trashManager.updateTrashCount();
+            }
+            if (window.gallery && typeof window.gallery.loadImages === 'function') {
+              const filters = typeof filterManager !== 'undefined' && filterManager.getFilters
+                ? filterManager.getFilters()
+                : {};
+              window.gallery.loadImages(filters);
+            }
+          } else {
+            modal.showToast('删除失败：' + (response?.error || '未知错误'), 'error');
+          }
+        } catch (error) {
+          modal.showToast('删除失败：' + error.message, 'error');
+        }
+      },
+      null,
+      isSoftDelete
+    );
+  }
+
+  _deleteImageRequest(path, mode) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/delete', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            if (response.success) {
+              resolve(response);
+            } else {
+              reject(new Error(response.error || '删除失败'));
+            }
+          } catch (e) {
+            reject(new Error('服务器响应格式错误'));
+          }
+        } else if (xhr.status === 404) {
+          reject(new Error('文件不存在或路径错误'));
+        } else {
+          reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('网络请求失败，请检查服务器连接'));
+
+      xhr.send(JSON.stringify({ path, mode }));
     });
   }
 

@@ -64,4 +64,13 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   }
+
+  const deleteSettingsBtn = document.getElementById('deleteSettingsBtn');
+  if (deleteSettingsBtn) {
+    deleteSettingsBtn.addEventListener('click', () => {
+      settingsManager.show();
+    });
+  }
+
+  trashManager.updateTrashCount();
 });
