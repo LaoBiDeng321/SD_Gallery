@@ -1,0 +1,248 @@
+/* ===================================================================
+   SD Gallery Theme Variables
+   Matches SD WebUI (Gradio default) native look.
+   Theme is set via data-theme attribute on <html>,
+   driven by the parent SD WebUI's __theme URL parameter.
+   =================================================================== */
+
+/* ---- Light theme (matches SD WebUI Gradio light default) ---- */
+[data-theme="light"] {
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f3f4f6;
+  --color-bg-tertiary: #e5e7eb;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-tertiary: #9ca3af;
+  --color-accent: #1f6feb;
+  --color-accent-hover: #1558c2;
+  --color-border: #e5e7eb;
+  --color-shadow: rgba(0, 0, 0, 0.08);
+  --color-overlay: rgba(0, 0, 0, 0.45);
+}
+
+/* ---- Dark theme: deepest bg, lighter cards on top ---- */
+[data-theme="dark"] {
+  --color-bg-primary: #1e293b;    /* cards, modals, inputs — lighter, elevated */
+  --color-bg-secondary: #0b1018;  /* body, navbar, sidebar — dark chrome */
+  --color-bg-tertiary: #182233;   /* hover states — subtle lift */
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-border: #1e2a3a;
+  --color-shadow: rgba(0, 0, 0, 0.5);
+  --color-overlay: rgba(0, 0, 0, 0.75);
+}
+
+/* ---- Smooth theme transition ---- */
+body {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.card,
+.navbar,
+.sidebar,
+.list-item,
+.layout__navbar,
+.layout__sidebar {
+  transition: background-color 0.2s ease,
+              border-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+/* ---- Lightbox (always dark, independent of theme) ---- */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(20px);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.lightbox.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.lightbox__header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+  z-index: 10;
+}
+
+.lightbox__delete-btn:hover {
+  color: #ef4444;
+}
+
+.lightbox__content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  overflow: hidden;
+}
+
+.lightbox__image-container {
+  max-width: 90%;
+  max-height: 80vh;
+  position: relative;
+  animation: zoomIn 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox__loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.lightbox__image {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+
+.lightbox__info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+  color: white;
+  max-height: 40vh;
+  overflow-y: auto;
+  transform: translateY(100%);
+  opacity: 0;
+  visibility: hidden;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, opacity;
+}
+
+.lightbox__info.is-visible {
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+}
+
+.lightbox__info-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.lightbox__info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.lightbox__info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lightbox__info-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lightbox__info-value {
+  font-size: 0.875rem;
+  font-family: 'SF Mono', Consolas, monospace;
+  word-break: break-word;
+}
+
+.lightbox__actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lightbox__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 50px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms ease;
+  z-index: 10;
+}
+
+.lightbox__nav:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.lightbox__nav--prev {
+  left: 1.5rem;
+}
+
+.lightbox__nav--next {
+  right: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .lightbox__info {
+    max-height: 50vh;
+  }
+
+  .lightbox__info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lightbox__nav {
+    width: 40px;
+    height: 40px;
+  }
+}
