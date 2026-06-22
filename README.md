@@ -156,7 +156,7 @@ sd-gallery/
   * **services/**: API客户端和第三方集成
   * **styles/**: 全局样式、主题、设计令牌
 
-详细的项目结构说明请参考 [PROJECT\_STRUCTURE.md](PROJECT_STRUCTURE.md) 和 [FILE\_NAVIGATION.md](FILE_NAVIGATION.md)。
+详细的项目结构说明请参考  [FILE\_NAVIGATION.md](FILE_NAVIGATION.md)。
 
 ## 功能介绍
 
