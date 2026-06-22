@@ -6,9 +6,6 @@
 
 > 为 Stable Diffusion 用户打造的现代化图片画廊管理工具，告别文件夹翻找，优雅管理你的 AI 生成作品。
 
-> **重大更新（自嗨版**：其实我已经把画廊服务跑进 WebUI 内部了……
-
-> 为 Stable Diffusion 用户打造的现代化图片画廊管理工具，告别文件夹翻找，优雅管理你的 AI 生成作品。
 
 > **重大更新（自嗨版）**：其实我已经把画廊服务跑进 WebUI 内部了——没错，就是那种不用单独 `python -m backend.app`、不用切端口、直接打开 SD WebUI 就能在专属 Tab 里逛画廊的丝滑体验 。Flask 后端通过 WSGIMiddleware 挂载在 FastAPI 上，共享一个端口，连 CORS 都不用配，优雅得一批。
 >
