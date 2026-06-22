@@ -5,6 +5,39 @@
 [![Flask](https://img.shields.io/badge/Flask-2.3.3-green.svg)](https://flask.palletsprojects.com/)
 
 > 为 Stable Diffusion 用户打造的现代化图片画廊管理工具，告别文件夹翻找，优雅管理你的 AI 生成作品。
+> ** 重大更新（自嗨版）**：其实我已经把画廊服务跑进 WebUI 内部了——没错，就是那种不用单独 `python -m backend.app`、不用切端口、直接打开 SD WebUI 就能在专属 Tab 里逛画廊的丝滑体验 。Flask 后端通过 WSGIMiddleware 挂载在 FastAPI 上，共享一个端口，连 CORS 都不用配，优雅得一批。
+>
+> 然鹅……因为我是直接改的整合包代码，改到一半才发现这玩意儿怎么发 PR 啊（笑死，根本理不清 diff）。所以——
+>
+> **兄弟们目前还是将就用老版本吧** 🥹。新版的发布嘛……自己研究研究，**遥遥无期 ing** （懂的都懂）🤡🤝
+>
+> <details>
+> <summary>🔧 给想自己动手的勇士（点开看技术细节）</summary>
+>
+> 核心思路：在 `extensions-builtin/sd-gallery/scripts/sd_gallery.py` 里用 `script_callbacks.on_ui_tabs` 注册一个 iframe Tab，再用 `on_app_started` 把 Flask app 通过 `WSGIMiddleware` 挂到 FastAPI 上。前端不用改，后端直接把 `OUTPUTS_DIR` 指向 WebUI 的 outputs 目录就好。
+>
+> 大概长这样：
+> ```python
+> from modules import script_callbacks
+> from sd_gallery.backend.app import app as flask_app
+> from fastapi.middleware.wsgi import WSGIMiddleware
+>
+> def on_app_started(demo, app):
+>     app.mount("/sd-gallery", WSGIMiddleware(flask_app))
+>
+> def on_ui_tabs():
+>     with gr.Blocks() as tab:
+>         gr.HTML('<iframe src="/sd-gallery" style="width:100%;height:100vh;border:none;">')
+>     return [(tab, "画廊", "sd-gallery-tab")]
+>
+> script_callbacks.on_app_started(on_app_started)
+> script_callbacks.on_ui_tabs(on_ui_tabs)
+> ```
+>
+> 就这，没了。但整合包的依赖、路径、各种边角料细节才是真正的 💩 山，自己体会吧 (doge)
+>
+> </details>
+
 
 ## 背景
 
