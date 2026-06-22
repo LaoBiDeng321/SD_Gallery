@@ -1,8 +1,12 @@
 # SD Gallery - AI图片展示系统
 
-[!\[License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[!\[Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[!\[Flask](https://img.shields.io/badge/Flask-2.3.3-green.svg)](https://flask.palletsprojects.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Flask](https://img.shields.io/badge/Flask-2.3.3-green.svg)](https://flask.palletsprojects.com/)
+
+> 为 Stable Diffusion 用户打造的现代化图片画廊管理工具，告别文件夹翻找，优雅管理你的 AI 生成作品。
+
+> ** 重大更新（自嗨版）**：其实我已经把画廊服务跑进 WebUI 内部了……
 
 > 为 Stable Diffusion 用户打造的现代化图片画廊管理工具，告别文件夹翻找，优雅管理你的 AI 生成作品。
 
