@@ -11,6 +11,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-python server.py
+rem server.py 是重构前的旧版备份（它没有 /src/ 静态路由，跑不动新的模块化前端）
+rem backend/app.py 使用相对导入，必须以模块方式启动
+python -m backend.app
 
 pause
